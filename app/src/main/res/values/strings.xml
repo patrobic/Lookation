@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Lookation</string>
+    <string name="title_activity_show_on_map">Map</string>
+</resources>
