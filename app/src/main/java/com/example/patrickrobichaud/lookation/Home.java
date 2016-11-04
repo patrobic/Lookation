@@ -62,4 +62,6 @@ public class Home extends AppCompatActivity {
 
     // Requests permission to use device location from Android OS
     void LocationPermission() { ActivityCompat.requestPermissions(Home.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 0); }
+
+    Boolean testgit = false;
 }
