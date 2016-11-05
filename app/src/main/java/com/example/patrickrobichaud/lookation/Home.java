@@ -27,7 +27,7 @@ public class Home extends AppCompatActivity {
         createlog.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(v.getContext(), Tracking.class);
-                i.putExtra("sampleinterval", GetSettings());
+                i.putExtra("sampleinterval", GetSettings()); // putting into question the use of putExtra... Extra NEVER RETRIEVED!
                 startActivity(i);
             }
         });
@@ -62,6 +62,4 @@ public class Home extends AppCompatActivity {
 
     // Requests permission to use device location from Android OS
     void LocationPermission() { ActivityCompat.requestPermissions(Home.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 0); }
-
-    Boolean testgit = false;
 }

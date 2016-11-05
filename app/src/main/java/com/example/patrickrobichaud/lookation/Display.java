@@ -1,5 +1,6 @@
 package com.example.patrickrobichaud.lookation;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -41,9 +42,12 @@ public class Display extends AppCompatActivity {
         delete.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if(spinner.getCount() == 0) return; // do not execute if no logs exist
+                delete.setEnabled(false);
                 int selectedposition = spinner.getSelectedItemPosition(); // get index of currently selected spinner item
                 LogStorage.deleteLog(selectedposition); // delete log table and index from database
                 UpdateUI(selectedposition); // reload Spinner items and refresh UI Textviews
+                if(spinner.getCount() > 0) LogStorage.delayButtonEnable(delete, Display.this); // if items exist, launch thread to delay enabling of delete button (for reliability: to avoid bugs)
+
             }
         });
 
@@ -51,6 +55,14 @@ public class Display extends AppCompatActivity {
         showmap.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(v.getContext(), ShowOnMap.class);
+
+                // TODO find some way to pass start/end points, and an array containing all intermediate waypoints
+                i.putExtra("index", spinner.getSelectedItemPosition()); // attempt at solution
+
+
+                //i.putExtra("startpoint", );  // Extras would work for this purpose (as used in createlog listener on Home Activity), but I believe are far from ideal for this use case
+                //i.putExtra("endpoint", );    // other possibilities, pass a List<LogEntry> (using extras or some other way), or...
+                //i.putExtra("pointsarray", ); // **BEST WAY IMO** using putExtra, simply pass a Log index, and let the ShowMap class access the database directly and load/display the location points from there
                 startActivity(i); // start ShowMap activity
             }
         });
@@ -82,7 +94,7 @@ public class Display extends AppCompatActivity {
         if(selecteditem == spinner.getCount())
             selecteditem--; // decrement selected item if nonexistent item is selected (in case of deleting last element)
         spinner.setSelection(selecteditem); // set selected spinner item index
-        if(spinner.getCount() == 0) { startpoint.setText("--"); endpoint.setText("--"); distance.setText("--"); displacement.setText("--"); duration.setText("--"); } // if no logs exist, set all Textviews to "--"
+        if(spinner.getCount() == 0) { delete.setEnabled(false); startpoint.setText("--"); endpoint.setText("--"); distance.setText("--"); displacement.setText("--"); duration.setText("--"); } // if no logs exist, set all Textviews to "--"
     }
 
     // calculate the linear distance between start and end points.

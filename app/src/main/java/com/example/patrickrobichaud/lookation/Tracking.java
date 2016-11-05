@@ -1,5 +1,6 @@
 package com.example.patrickrobichaud.lookation;
 import android.Manifest;
+import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -18,6 +19,8 @@ import android.widget.Toast;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
+
+// TODO implement background services to allow location logging to persist
 
 public class Tracking extends AppCompatActivity implements ConnectionCallbacks, LocationListener{
     Button start, stop;
@@ -57,7 +60,7 @@ public class Tracking extends AppCompatActivity implements ConnectionCallbacks, 
         // listener for Start Tracking button
         start.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (logname.getText().toString().length() > 0) {
+                if (logname.getText().toString().length() > 0 && Character.isAlphabetic(logname.getText().charAt(0))) {
                     run = true; // set boolean value to indicate logging is active
                     stop.setEnabled(true); // enable stop button
                     start.setEnabled(false); // disable stop button
@@ -72,7 +75,7 @@ public class Tracking extends AppCompatActivity implements ConnectionCallbacks, 
             public void onClick(View v) {
                 run = false; // set boolean value to indicate running has stopped
                 stop.setEnabled(false); // disable stop button
-                start.setEnabled(true); // enable start button
+                LogStorage.delayButtonEnable(start, Tracking.this); // launch thread to delay enabling of start button (for reliability: to avoid bugs)
             }
         });
 

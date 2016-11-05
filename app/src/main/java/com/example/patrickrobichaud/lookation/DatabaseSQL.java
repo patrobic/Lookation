@@ -1,10 +1,13 @@
 package com.example.patrickrobichaud.lookation;
 
+import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.widget.Button;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +36,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         newtableindex.put("ID", tablenum);
         newtableindex.put("Name", logname);
         db.insert("IndexTable", null, newtableindex); // insert content into indextable
-        db.close();
+        // db.close();
         return tablenum;
     }
 
@@ -43,7 +46,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         String testname = name; // create temporary local string
         if (number > 0) testname = name + "_" + number; // if not 0th iteration, append number in "string (#)" format
         for(int i = 0; i < tablelist.size(); i++) // compare temporary string with all names in list
-            if (testname.equals(tablelist.get(i)))
+            if (testname.toLowerCase().equals(tablelist.get(i).toLowerCase())) // convert strings to lowercase for comparison, to avoid duplicates of varying case (possible BUG)
                 testname = CheckNameExists(name, ++number); // recurse with next number
         return testname; // when name is unique, return name with appended number
     }
@@ -57,7 +60,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         values.put(KEY_DATE, entry.getDate());
 
         db.insert(getTableName(tablenum), null, values); // insert row content into database
-        db.close();
+        // db.close();
     }
 
     // get a compact list of all entries for a given log, in LogEntry Class format, used to display data
@@ -73,7 +76,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
+        // db.close();
         return EntryList;
     }
 
@@ -95,7 +98,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
                 while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
+        // db.close();
         return TableList;
     }
 
@@ -126,7 +129,20 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         Cursor index = db.rawQuery("SELECT * FROM IndexTable", null); // select all entries in indextable
         index.moveToPosition(tablenum); // move to entry corresponding to desire log name
         String name = index.getString(1); // get log name (second column)
-        //db.close();
+        //// db.close();
         return name;
+    }
+
+    // function that accepts a button and its activity, and reenables the button in a thread after specified delay
+    public void delayButtonEnable(final Button button, final Activity activity) {
+        Thread delay;
+        (delay = new Thread() { public void run() {
+            android.os.SystemClock.sleep(300);
+            activity.runOnUiThread(new Runnable() {
+                public void run() {
+                    button.setEnabled(true);
+                }
+            });
+        } }).start();
     }
 }
