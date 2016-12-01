@@ -1,43 +1,34 @@
 package com.example.patrickrobichaud.lookation;
-import android.Manifest;
+
 import android.app.Activity;
-import android.content.pm.PackageManager;
-import android.location.Location;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
-import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
+import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Button;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import android.widget.Toast;
-import java.text.DateFormat;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
 
-// TODO implement background services to allow location logging to persist
-
-public class Tracking extends AppCompatActivity implements ConnectionCallbacks, LocationListener{
+public class Tracking extends AppCompatActivity {
     Button start, stop;
     TextView startpoint, currentlocation, elapsedtime, samplinginterval, locationtime, starttime, numbersamples, lognumber;
     EditText logname;
-    String mLastUpdateTime;
-    Boolean run;
     Bundle extras;
-    Thread TrackerThread;
-    GoogleApiClient mGoogleApiClient;
-    LocationRequest mLocationRequest;
-    Location mLastLocation = new Location("location provider");
-    Location mCurrentLocation = new Location("location provider");
-    DatabaseSQL LogStorage;
+    Intent bgservice;
+    public static Boolean run;
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         setContentView(R.layout.activity_tracking);
         extras = getIntent().getExtras();
         start = (Button) findViewById(R.id.start);
@@ -51,20 +42,23 @@ public class Tracking extends AppCompatActivity implements ConnectionCallbacks, 
         numbersamples = (TextView) findViewById(R.id.numbersamples);
         lognumber = (TextView) findViewById(R.id.lognumber);
         logname = (EditText) findViewById(R.id.logname);
-        LogStorage = new DatabaseSQL(this);
         stop.setEnabled(false);
         samplinginterval.setText(Integer.toString(extras.getInt("sampleinterval")) + " milliseconds");
-        mLocationRequest = LocationRequest.create().setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY).setInterval(1000).setFastestInterval(1000);
-        if (mGoogleApiClient == null) { mGoogleApiClient = new GoogleApiClient.Builder(this).addConnectionCallbacks(this).addApi(LocationServices.API).build(); }
+        run = false;
+        logname.setText(new Date().toString());
 
         // listener for Start Tracking button
         start.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (logname.getText().toString().length() > 0 && Character.isAlphabetic(logname.getText().charAt(0))) {
+                if (logname.getText().toString().length() > 0){// && logname.getText().toString().matches("^[a-zA-Z0-9]*$")) {
                     run = true; // set boolean value to indicate logging is active
                     stop.setEnabled(true); // enable stop button
                     start.setEnabled(false); // disable stop button
-                    (TrackerThread = new Thread() { public void run() { TrackerThread(0, logname.getText().toString()); } }).start(); // run new thread to periodically update and store location in database
+
+                    bgservice = new Intent(Tracking.this, BGService.class); // create intent for background logging service
+                    bgservice.putExtra("sampleinterval", extras.getInt("sampleinterval")); // send sample interval
+                    bgservice.putExtra("logname", logname.getText().toString()); // send log name
+                    startService(bgservice); // launch the background service
                 }
                 else Toast.makeText(getApplicationContext(), "Invalid log name.", Toast.LENGTH_LONG).show(); // warn user if log name is invalid
             }
@@ -75,79 +69,60 @@ public class Tracking extends AppCompatActivity implements ConnectionCallbacks, 
             public void onClick(View v) {
                 run = false; // set boolean value to indicate running has stopped
                 stop.setEnabled(false); // disable stop button
-                LogStorage.delayButtonEnable(start, Tracking.this); // launch thread to delay enabling of start button (for reliability: to avoid bugs)
+                delayButtonEnable(start, Tracking.this); // launch thread to delay enabling of start button (for reliability: to avoid bugs)
+                logname.setText(new Date().toString()); // generate new log name with current time
+                stopService(bgservice);
             }
         });
 
-        onStart(); // connect to Google Location API client
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+                new BroadcastReceiver() {
+                    @Override public void onReceive(Context context, final Intent intent) {
+                        runOnUiThread(new Runnable() { public void run() {
+                        currentlocation.setText(intent.getStringExtra("currentlocation")); // display current location
+                        numbersamples.setText(intent.getStringExtra("numbersamples")); // display number of samples accumulated so far
+                        locationtime.setText(intent.getStringExtra("locationtime")); // display time at which last location update was received
+                        elapsedtime.setText(intent.getStringExtra("elapsedtime")); // display time elapsed since log start
+                        } });
+                    }
+                }, new IntentFilter("updateUIdynamic")
+        );
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+                new BroadcastReceiver() {
+                    @Override public void onReceive(Context context, final Intent intent) {
+                        runOnUiThread(new Runnable() { public void run() {
+                            starttime.setText(intent.getStringExtra("starttime")); // display time at which log started
+                            startpoint.setText(intent.getStringExtra("startpoint")); // display starting location
+                            samplinginterval.setText(Integer.toString(extras.getInt("sampleinterval")) + " milliseconds"); // display sampling interval from Sharedprefs
+                            lognumber.setText(intent.getStringExtra("lognumber")); // display the index of this log
+                        } });
+                    }
+                }, new IntentFilter("updateUIstatic")
+        );
     }
 
-    protected void onStart() { mGoogleApiClient.connect(); super.onStart(); }
-    protected void onStop() { mGoogleApiClient.disconnect(); super.onStop(); }
-    protected void onResume() { super.onResume(); mGoogleApiClient.connect(); super.onStart(); }
-    public void onConnectionSuspended (int cause) {}
-
-    // check for location permission and start location updating process
-    public void onConnected(Bundle connectionHint) {
-        if (ContextCompat.checkSelfPermission(Tracking.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // check if permission has been granted
-            mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient); // set the last known location
-                startLocationUpdates(); // start receiving periodic location updates from services
-        }
+    // function that accepts a button and its activity, and reenables the button in a thread after specified delay
+    public static void delayButtonEnable(final Button button, final Activity activity) {
+        Thread delay;
+        (delay = new Thread() { public void run() {
+            android.os.SystemClock.sleep(300);
+            activity.runOnUiThread(new Runnable() {
+                public void run() {
+                    button.setEnabled(true);
+                }
+            });
+        } }).start();
     }
 
-    // update and store current location when new location is received
-    public void onLocationChanged(Location location) {
-        mCurrentLocation = location; // store fresh current location
-        mLastUpdateTime = DateFormat.getTimeInstance().format(new Date()); // store time at which location was determined
+    @Override public void onBackPressed() {
+        if(!run) finish(); // go back only if settings have been saved
+        else Toast.makeText(getApplicationContext(), "Stop logging first.", Toast.LENGTH_LONG).show();
     }
 
-    // tell location services to start requesting and storing location
-    protected void startLocationUpdates() {
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this); // request location updates through FusedAPI
-    }
-
-    // thread responsible for intercepting location and storing updates into database
-    protected void TrackerThread(int i, String logname) {
-        Date startdate = new Date(); // set persistent start date for comparison
-        Date currentdate = new Date();
-        double latitude = mCurrentLocation.getLatitude();
-        double longitude = mCurrentLocation.getLongitude();
-        int tablenum = LogStorage.CreateLogTable(logname);
-        updateUIstatic(String.valueOf(latitude), String.valueOf(longitude), DateFormat.getTimeInstance().format(currentdate), String.valueOf(tablenum)); // set Textviews that are constant during entire log
-
-        while(run){ // keep updating UI and logging location until boolean value is made false by stop button
-            currentdate = new Date();
-            //String timediff = DateFormat.getTimeInstance().format(currentdate.getTime()-startdate.getTime()); // calculate difference in time between now and start
-            String timediff = Long.toString(TimeUnit.MILLISECONDS.toSeconds(currentdate.getTime()-startdate.getTime())); // displaying in raw seconds instead
-            latitude = mCurrentLocation.getLatitude();
-            longitude = mCurrentLocation.getLongitude();
-            LogStorage.CreateEntry(new LogEntry(latitude, longitude, DateFormat.getTimeInstance().format(currentdate)), tablenum); // create new entry in appropriate table in database
-            updateUIdynamic(++i, String.valueOf(latitude), String.valueOf(longitude), timediff); // refresh UI Textviews that update for each sample
-            android.os.SystemClock.sleep(extras.getInt("sampleinterval")); // make updates intermittent at sample interval specified in settings
-        }
-    }
-
-    // Set UI elements that change at each sample
-    private void updateUIdynamic(final int numsamples, final String latitude, final String longitude, final String timediff) { // set variable data (elapsed time, currentlocation, numbersamples, locationtime)
-        runOnUiThread(new Runnable() {
-            public void run() {
-                currentlocation.setText(latitude + "lat, " + longitude + "lon"); // display current location
-                numbersamples.setText(Integer.toString(numsamples) + " samples"); // display number of samples accumulated so far
-                locationtime.setText(mLastUpdateTime); // display time at which last location update was received
-                elapsedtime.setText(timediff); // display time elapsed since log start
-            }
-        });
-    }
-
-    // set UI elements on first run only
-    private void updateUIstatic(final String latitude, final String longitude, final String startdate, final String tablenum) { // set static data (startpoint, starttime, samplinginterval)
-        runOnUiThread(new Runnable() {
-            public void run() {
-                starttime.setText(startdate); // display time at which log started
-                startpoint.setText(latitude + "lat, " + longitude + "lon"); // display starting location
-                samplinginterval.setText(Integer.toString(extras.getInt("sampleinterval")) + " milliseconds"); // display sampling interval from Sharedprefs
-                lognumber.setText(tablenum); // display the index of this log
-            }
-        });
+    @Override public boolean onOptionsItemSelected(MenuItem item) {
+        if(!run) finish(); // go back only if settings have not been modified
+        else Toast.makeText(getApplicationContext(), "Stop logging first.", Toast.LENGTH_LONG).show();
+        return super.onOptionsItemSelected(item);
     }
 }

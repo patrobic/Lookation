@@ -1,13 +1,10 @@
 package com.example.patrickrobichaud.lookation;
 
-import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.widget.Button;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +25,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
 
     // create new log table and corresponding pointer in indextable, used when initiating logging
     public int CreateLogTable(String tentativelogname) {
+        tentativelogname = tentativelogname.replaceAll("[^A-Za-z0-9]", "_");
         String logname = CheckNameExists(tentativelogname, 0); // check if log name is unique
         int tablenum = getLogCount(); // get next available number for log ID
         SQLiteDatabase db = this.getWritableDatabase();
@@ -36,7 +34,6 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         newtableindex.put("ID", tablenum);
         newtableindex.put("Name", logname);
         db.insert("IndexTable", null, newtableindex); // insert content into indextable
-        // db.close();
         return tablenum;
     }
 
@@ -58,9 +55,7 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         values.put(KEY_LATITUDE, entry.getLatitude()); // build row by inserting latitude, longitude and date
         values.put(KEY_LONGITUDE, entry.getLongitude());
         values.put(KEY_DATE, entry.getDate());
-
         db.insert(getTableName(tablenum), null, values); // insert row content into database
-        // db.close();
     }
 
     // get a compact list of all entries for a given log, in LogEntry Class format, used to display data
@@ -76,11 +71,10 @@ public class DatabaseSQL extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        // db.close();
         return EntryList;
     }
 
-    // TODO implement function that returns the output of getEntryList for each Log Set stored into a 3D List<List<LogEntry>>. Use output of getTableList as iterative element for string of db.rawQuery(Table_#??), and its size as loop range.
+    // returns the output of getEntryList for each Log Set stored into a 3D List<List<LogEntry>>.
     public List<List<LogEntry>> getLogList() {
         List<List<LogEntry>> LogList = new ArrayList<>();
         for(int i = 0; i < getLogCount(); i++) LogList.add(getEntryList(i)); // call getEntryList for all logs and build an array from its output
@@ -98,7 +92,6 @@ public class DatabaseSQL extends SQLiteOpenHelper {
                 while (cursor.moveToNext());
         }
         cursor.close();
-        // db.close();
         return TableList;
     }
 
@@ -129,20 +122,6 @@ public class DatabaseSQL extends SQLiteOpenHelper {
         Cursor index = db.rawQuery("SELECT * FROM IndexTable", null); // select all entries in indextable
         index.moveToPosition(tablenum); // move to entry corresponding to desire log name
         String name = index.getString(1); // get log name (second column)
-        //// db.close();
         return name;
-    }
-
-    // function that accepts a button and its activity, and reenables the button in a thread after specified delay
-    public void delayButtonEnable(final Button button, final Activity activity) {
-        Thread delay;
-        (delay = new Thread() { public void run() {
-            android.os.SystemClock.sleep(300);
-            activity.runOnUiThread(new Runnable() {
-                public void run() {
-                    button.setEnabled(true);
-                }
-            });
-        } }).start();
     }
 }

@@ -1,5 +1,7 @@
 package com.example.patrickrobichaud.lookation;
 import android.content.Intent;
+import android.graphics.Color;
+import android.location.Location;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import com.google.android.gms.maps.CameraUpdate;
@@ -10,6 +12,8 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
+
 import java.util.List;
 
 public class ShowOnMap extends FragmentActivity implements OnMapReadyCallback {
@@ -53,6 +57,13 @@ public class ShowOnMap extends FragmentActivity implements OnMapReadyCallback {
         LatLngBounds bounds = builder.build(); // create bounding box delimited by start and end points
         // TODO builder bounding box does not account for protruding path (BUG: if path deviates significantly from linear A to B, distant portions may get cut off)
         // SOLUTION: just include all intermediate waypoints in builder, which guarantees that each path segment will ALSO be in the bounding box!
+
+        PolylineOptions options = new PolylineOptions();
+        options.color( Color.parseColor("#CC0000FF"));
+        options.width(5);
+        options.visible(true);
+        for (int i = 0; i< LogList.size(); i++ ) { options.add( new LatLng( LogList.get(i).getLatitude(), LogList.get(i).getLongitude() ) ); }
+        googleMap.addPolyline( options );
 
         int width = getResources().getDisplayMetrics().widthPixels; // get dimensions of device display
         int height = getResources().getDisplayMetrics().heightPixels;

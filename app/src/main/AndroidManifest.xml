@@ -40,7 +40,9 @@
         <activity
             android:name=".ShowOnMap"
             android:label="@string/title_activity_show_on_map" />
-        <activity android:name=".test"></activity>
+        <service
+            android:name=".BGService"
+            android:exported="false"/>
     </application>
 
 </manifest>
